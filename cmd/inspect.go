@@ -6,7 +6,9 @@ import (
 	"sync"
 
 	"github.com/kangthink/infra-god-cli/internal/collector"
+	"github.com/kangthink/infra-god-cli/internal/inventory"
 	"github.com/kangthink/infra-god-cli/internal/output"
+	sshclient "github.com/kangthink/infra-god-cli/internal/ssh"
 	"github.com/spf13/cobra"
 )
 
@@ -22,10 +24,9 @@ var (
 )
 
 var inspectCmd = &cobra.Command{
-	Use:   "inspect <server>",
+	Use:   "inspect [server...]",
 	Short: "Deep inspection of a server",
-	Long:  "Collect detailed hardware, software, Docker, network, and service information.",
-	Args:  cobra.ExactArgs(1),
+	Long:  "Collect detailed hardware, software, Docker, network, and service information.\nSupports multiple servers, --group, and --all flags.",
 	Run:   runInspect,
 }
 
@@ -42,23 +43,49 @@ func init() {
 }
 
 func runInspect(cmd *cobra.Command, args []string) {
-	_, servers, err := loadInventory()
+	cfg, servers, err := loadInventory()
 	if err != nil {
 		fatalErr("load config", err)
 	}
 
-	srv, ok := servers[args[0]]
-	if !ok {
-		fatalErr("unknown server", fmt.Errorf("%s", args[0]))
+	// If no args and no group/all flag, require at least one server
+	if len(args) == 0 && groupFlag == "" && !allFlag {
+		fatalErr("inspect", fmt.Errorf("specify server name(s), --group, or --all"))
 	}
 
-	if !srv.IsActive() {
-		fmt.Printf(" %s %s is stopped\n", output.Dim("⏹️"), srv.Name)
-		return
+	var targets []*inventory.ResolvedServer
+	if groupFlag != "" || allFlag {
+		targets, err = resolveTargets(cfg, servers, args)
+		if err != nil {
+			fatalErr("resolve targets", err)
+		}
+	} else {
+		for _, name := range args {
+			srv, ok := servers[name]
+			if !ok {
+				fatalErr("unknown server", fmt.Errorf("%s", name))
+			}
+			targets = append(targets, srv)
+		}
 	}
 
 	client := newSSHClient()
 
+	for i, srv := range targets {
+		if !srv.IsActive() {
+			fmt.Printf(" %s %s is stopped\n", output.Dim("⏹️"), srv.Name)
+			continue
+		}
+
+		if i > 0 {
+			fmt.Println()
+		}
+
+		inspectServer(client, srv)
+	}
+}
+
+func inspectServer(client *sshclient.Client, srv *inventory.ResolvedServer) {
 	// Check if specific section requested
 	showAll := !inspectHWFlag && !inspectGPUFlag && !inspectDockerFlag &&
 		!inspectStorageFlag && !inspectNetworkFlag && !inspectSoftwareFlag && !inspectServicesFlag
@@ -113,7 +140,6 @@ func runInspect(cmd *cobra.Command, args []string) {
 	wg.Wait()
 
 	// Print results in order
-	var fullOutput strings.Builder
 	for _, sec := range sections {
 		if sec.err != nil {
 			fmt.Printf("\n %s %s: %v\n", output.Red("❌"), sec.name, sec.err)
@@ -121,7 +147,6 @@ func runInspect(cmd *cobra.Command, args []string) {
 		}
 		formatted := formatSection(sec.name, sec.output)
 		fmt.Print(formatted)
-		fullOutput.WriteString(formatted)
 	}
 
 	// Save to file
