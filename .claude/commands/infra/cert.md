@@ -1,12 +1,12 @@
 ---
-allowed-tools: [Read, Bash, Task]
+allowed-tools: [Read, Bash]
 description: "SSL 인증서 만료일 확인 및 갱신 관리"
 ---
 
 # /infra:cert - SSL 인증서 관리
 
 ## Purpose
-전체 서버의 SSL 인증서 만료일을 확인하고, 만료 임박 시 갱신을 실행한다.
+infra-god CLI의 exec 기능을 활용하여 전체 서버의 SSL 인증서 만료일을 확인하고 갱신한다.
 
 ## Usage
 ```
@@ -16,7 +16,7 @@ description: "SSL 인증서 만료일 확인 및 갱신 관리"
 ## Arguments
 - `--check` - 인증서 만료일 확인 (기본)
 - `--renew` - 만료 임박 인증서 갱신
-- `--target` - 대상 서버/그룹. 기본값: active
+- `--target` - 대상 서버/그룹. 기본값: 전체 active
 - `--domain` - 특정 도메인만 확인
 
 ## Execution
@@ -25,72 +25,47 @@ description: "SSL 인증서 만료일 확인 및 갱신 관리"
 
 **서버 내부 인증서 확인:**
 ```bash
-ssh user@host "
-  # Let's Encrypt 인증서
-  for cert in /etc/letsencrypt/live/*/cert.pem; do
-    domain=\$(basename \$(dirname \$cert));
-    expiry=\$(openssl x509 -in \$cert -enddate -noout | cut -d= -f2);
-    days=\$(( ( \$(date -d \"\$expiry\" +%s) - \$(date +%s) ) / 86400 ));
-    echo \"\$domain|\$expiry|\$days\";
-  done 2>/dev/null;
-
-  # 기타 인증서 (/etc/ssl/)
-  find /etc/ssl/certs /etc/nginx/ssl -name '*.pem' -o -name '*.crt' 2>/dev/null | while read cert; do
-    expiry=\$(openssl x509 -in \$cert -enddate -noout 2>/dev/null | cut -d= -f2);
-    if [ -n \"\$expiry\" ]; then
-      days=\$(( ( \$(date -d \"\$expiry\" +%s) - \$(date +%s) ) / 86400 ));
-      echo \"\$cert|\$expiry|\$days\";
-    fi
-  done;
-"
+./infra-god exec 'for cert in /etc/letsencrypt/live/*/cert.pem; do domain=$(basename $(dirname $cert)); expiry=$(openssl x509 -in $cert -enddate -noout | cut -d= -f2); days=$(( ($(date -d "$expiry" +%s) - $(date +%s)) / 86400 )); echo "$domain $expiry ${days}d"; done 2>/dev/null' --sudo
 ```
 
-**외부 도메인 확인 (서버 불필요):**
+**특정 서버만:**
 ```bash
-echo | openssl s_client -connect domain:443 -servername domain 2>/dev/null | openssl x509 -noout -enddate -subject
+./infra-god exec 'for cert in /etc/letsencrypt/live/*/cert.pem; do domain=$(basename $(dirname $cert)); expiry=$(openssl x509 -in $cert -enddate -noout | cut -d= -f2); days=$(( ($(date -d "$expiry" +%s) - $(date +%s)) / 86400 )); echo "$domain $expiry ${days}d"; done 2>/dev/null' web-1 --sudo
 ```
 
-**출력:**
-```
-╔════════════════════════════════════════════════════════╗
-║  CERT CHECK                          2026-02-19       ║
-╠════════════════════════════════════════════════════════╣
-║  SERVER  │ DOMAIN          │ EXPIRES    │ DAYS │ STATUS║
-╠═════════╪═════════════════╪════════════╪══════╪═══════╣
-║  main1   │ example.com     │ 2026-05-20 │  90  │  ✅  ║
-║  main1   │ api.example.com │ 2026-03-15 │  24  │  ⚠️  ║
-║  main2   │ app.example.com │ 2026-02-25 │   6  │  🚨  ║
-╠════════════════════════════════════════════════════════╣
-║  ✅ 1 정상  ⚠️ 1 경고(<30일)  🚨 1 긴급(<7일)          ║
-╚════════════════════════════════════════════════════════╝
+**외부 도메인 직접 확인 (로컬에서):**
+```bash
+echo | openssl s_client -connect example.com:443 -servername example.com 2>/dev/null | openssl x509 -noout -enddate -subject
 ```
 
 ### --renew (인증서 갱신)
 
-**절차:**
-1. 만료 30일 이내 인증서 식별
-2. 갱신 방법 확인:
-   - Let's Encrypt: `certbot renew --cert-name [domain]`
-   - 기타: 수동 갱신 안내
-3. 갱신 실행:
 ```bash
-ssh user@host "sudo certbot renew --cert-name [domain] --non-interactive"
-```
-4. 갱신 결과 확인:
-```bash
-ssh user@host "sudo certbot certificates --cert-name [domain]"
-```
-5. 웹서버 리로드:
-```bash
-ssh user@host "sudo nginx -t && sudo systemctl reload nginx"
+# certbot 갱신
+./infra-god exec "certbot renew --cert-name DOMAIN --non-interactive" web-1 --sudo --yes
+
+# 갱신 확인
+./infra-god exec "certbot certificates --cert-name DOMAIN" web-1 --sudo
+
+# 웹서버 리로드
+./infra-god exec "nginx -t && systemctl reload nginx" web-1 --sudo --yes
 ```
 
-**상태 기준:**
+### 출력 형식
+```
+═══ CERT CHECK ═══
+SERVER  │ DOMAIN          │ EXPIRES    │ DAYS │ STATUS
+web-1   │ example.com     │ 2026-06-20 │  90  │  ✅
+web-1   │ api.example.com │ 2026-04-15 │  24  │  ⚠️
+web-2   │ app.example.com │ 2026-03-25 │   6  │  🚨
+
+✅ 1 정상  ⚠️ 1 경고(<30일)  🚨 1 긴급(<7일)
+```
+
+### 상태 기준
 - ✅ 정상: >30일
 - ⚠️ 경고: 7~30일
 - 🚨 긴급: <7일
 
-## Claude Code Integration
-- Read로 servers.yaml 로드
-- Bash로 SSH 인증서 확인/갱신
-- Task 서브에이전트로 멀티서버 병렬 확인
+## 환경변수
+- `INFRA_SSH_PASS` - SSH 비밀번호 (password auth 사용 시)

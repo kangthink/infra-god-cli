@@ -1,78 +1,63 @@
 ---
-allowed-tools: [Read, Bash, Task]
+allowed-tools: [Read, Bash]
 description: "여러 서버에 명령어를 병렬로 실행"
 ---
 
 # /infra:exec - 병렬 명령 실행
 
 ## Purpose
-지정된 서버 그룹에 명령어를 병렬로 실행하고 결과를 취합한다.
+infra-god CLI를 사용하여 지정된 서버들에 명령어를 병렬로 실행하고 결과를 취합한다.
 
 ## Usage
 ```
-/infra:exec [command] [--target group|server] [--sudo] [--timeout 30] [--dry-run]
+/infra:exec [command] [--target group|server] [--sudo] [--dry-run] [--serial] [--yes]
 ```
 
 ## Arguments
-- `command` - 실행할 쉘 명령어 (따옴표로 감싸기)
-- `--target` - 대상 서버/그룹. 기본값: active
+- `command` - 실행할 쉘 명령어
+- `--target` - 대상 서버/그룹. 기본값: 전체 active
 - `--sudo` - sudo 권한으로 실행
-- `--timeout` - 명령 타임아웃 초 (기본: 30)
 - `--dry-run` - 실행하지 않고 대상 서버와 명령만 표시
-- `--confirm` - 위험 명령 시 확인 없이 실행 (기본: 위험 명령은 확인 요청)
+- `--serial` - 병렬 대신 순차 실행
+- `--yes` - 위험 명령 시 확인 없이 실행
 
 ## Execution
 
-### 1. 사전 검증
-- servers.yaml에서 대상 서버 목록 로드
-- 명령어 위험도 평가:
-  - **차단**: `rm -rf /`, `mkfs`, `dd if=`, `:(){ :|:& };:` 등
-  - **확인 필요**: `rm`, `kill`, `systemctl stop`, `reboot`, `shutdown`, `apt remove`, `pip uninstall`
-  - **안전**: 그 외 읽기 전용 명령
-
-### 2. --dry-run 시
-```
-[DRY-RUN] 대상: web-1(10.0.1.1), web-2(10.0.1.2), gpu-1(10.0.1.10)
-[DRY-RUN] 명령: apt update && apt upgrade -y
-[DRY-RUN] 옵션: sudo=true, timeout=60s
-실행하려면 --dry-run 플래그를 제거하세요.
-```
-
-### 3. 병렬 실행
-- Task 서브에이전트를 서버 수만큼 생성
-- 각 서브에이전트가 Bash로 SSH 명령 실행:
+### 1. CLI 실행
 ```bash
-ssh [-t] user@host "[sudo] command"
-```
-- wired IP 우선 시도, 실패 시 wireless IP fallback
+# 전체 서버에 명령 실행
+./infra-god exec "uptime"
 
-### 4. 결과 취합
-```
-╔═══════════════════════════════════════════════════════╗
-║  EXEC: apt update && apt upgrade -y                  ║
-║  TARGET: mains (2 servers)  SUDO: yes  TIMEOUT: 60s  ║
-╠═══════════════════════════════════════════════════════╣
-║  main1   │ ✅ 성공 │ exit:0 │ 12.3s │ 45 packages upgraded  ║
-║  main2   │ ✅ 성공 │ exit:0 │ 15.1s │ 45 packages upgraded  ║
-╠═══════════════════════════════════════════════════════╣
-║  결과: 2/2 성공                                        ║
-╚═══════════════════════════════════════════════════════╝
-```
+# 특정 그룹 대상
+./infra-god exec "df -h" --group workers
 
-- 실패 서버가 있으면 stderr 출력 포함
-- `--json` 시 구조화된 JSON 출력
+# 특정 서버 대상
+./infra-god exec "nvidia-smi" server1 server2
 
-## 사용 예시
-```
-/infra:exec "apt update && apt upgrade -y" --target all --sudo
-/infra:exec "docker pull nginx:latest" --target machines
-/infra:exec "nvidia-smi" --target gpu
-/infra:exec "df -h" --target active
-/infra:exec "systemctl restart nginx" --target mains --sudo --confirm
+# sudo 실행
+./infra-god exec "apt update && apt upgrade -y" --sudo --yes
+
+# dry-run
+./infra-god exec "reboot" --sudo --dry-run
 ```
 
-## Claude Code Integration
-- Read로 servers.yaml 로드
-- Task 서브에이전트로 병렬 SSH 실행
-- Bash로 실제 SSH 명령 수행
-- 위험 명령 감지 시 사용자에게 확인 요청
+### 2. 안전 기능
+CLI에 내장된 안전 기능:
+- **차단**: `rm -rf /`, `mkfs`, `dd if=` 등 파괴적 명령 자동 차단
+- **확인 요청**: `reboot`, `shutdown`, `docker rm`, `systemctl stop` 등 중위험 명령
+- **경고**: `apt upgrade`, `chmod -R` 등 주의 명령
+
+### 3. 출력 형식
+```
+═══ EXEC: apt update    --all (4 servers) ═══
+ ✅ web-1 (234ms)
+ <output>
+ ✅ gpu-1 (456ms)
+ <output>
+ ❌ worker-1 (10s) SSH handshake failed
+
+ SUMMARY: 2/3 succeeded | avg 345ms
+```
+
+## 환경변수
+- `INFRA_SSH_PASS` - SSH 비밀번호 (password auth 사용 시)
