@@ -1,0 +1,78 @@
+# infra-god Server Inventory
+# Copy this file to servers.yaml and edit with your server details.
+
+defaults:
+  ssh_user: deploy
+  ssh_port: 22
+  prefer: wired  # wired first, fallback to wireless
+  auth:
+    type: password
+    password_env: INFRA_SSH_PASS  # export INFRA_SSH_PASS="your-password"
+
+servers:
+  web-1:
+    host: 10.0.1.1
+    role: main
+    description: "Main server 1"
+
+  web-2:
+    host: 10.0.1.2
+    role: main
+    ssh_user: admin
+    auth:
+      type: key
+      key_path: ~/.ssh/web2_id_rsa
+    description: "Main server 2"
+
+  gpu-1:
+    host:
+      wired: 10.0.1.10
+      wireless: 10.0.2.10
+    role: machine
+    description: "GPU workstation 1"
+
+  gpu-2:
+    host: null
+    role: machine
+    status: stopped
+    description: "GPU workstation 2 (powered off)"
+
+  worker-1:
+    host:
+      wired: 10.0.1.20
+      wireless: 10.0.2.20
+    role: worker
+    description: "Worker node 1"
+
+  worker-2:
+    host: 10.0.1.21
+    role: worker
+    description: "Worker node 2"
+
+# Server groups (for targeting commands)
+groups:
+  all: [web-1, web-2, gpu-1, gpu-2, worker-1, worker-2]
+  mains: [web-1, web-2]
+  machines: [gpu-1, gpu-2]
+  workers: [worker-1, worker-2]
+  gpu: [gpu-1]
+  active: [web-1, web-2, gpu-1, worker-1, worker-2]
+
+# Alert settings (optional)
+alerts:
+  # Notion — structured data logging
+  notion:
+    api_key: "${NOTION_API_KEY}"
+    database_id: "${NOTION_DB_ID}"
+
+  # Slack — instant alerts
+  slack:
+    webhook_url: "${SLACK_WEBHOOK_URL}"
+    channel: "#ops-alerts"
+
+  # Alert thresholds
+  thresholds:
+    cpu: 80
+    ram: 85
+    disk: 85
+    gpu: 90

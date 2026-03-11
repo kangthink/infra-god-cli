@@ -1,0 +1,25 @@
+# Binary
+infra-god
+
+# User config (contains real server IPs/credentials)
+servers.yaml
+
+# Logs
+logs/
+
+# Environment files
+.env
+.env.*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Reports
+reports/
