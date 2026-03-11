@@ -207,6 +207,46 @@ servers:
 | `--sudo` | Execute with sudo |
 | `--verbose` | Verbose output |
 
+## Using with Claude Code
+
+infra-god includes built-in [Claude Code](https://docs.anthropic.com/en/docs/claude-code) slash commands for AI-powered server management. Clone the repo and use the commands directly from the project directory.
+
+### Available Commands
+
+| Command | Description |
+|---------|-------------|
+| `/infra:status` | Fleet-wide status dashboard with warnings |
+| `/infra:inspect` | Deep inspection of a specific server |
+| `/infra:exec` | Run commands across multiple servers |
+| `/infra:diagnose` | AI-powered root cause analysis |
+| `/infra:heal` | Automated recovery (disk cleanup, restart, harden) |
+| `/infra:cert` | SSL certificate expiry check and renewal |
+| `/infra:deploy-check` | Pre/post deploy metric comparison |
+| `/infra:report` | Generate daily/weekly infrastructure reports |
+| `/infra:config` | Manage server inventory (add/edit/remove) |
+
+### Example Workflow
+
+```bash
+# Morning health check
+/infra:status
+
+# Server showing high CPU? Diagnose it
+/infra:diagnose machine4 "CPU high"
+
+# Disk full? Auto-clean
+/infra:heal machine4 disk-cleanup --dry-run
+/infra:heal machine4 disk-cleanup
+
+# Check SSL certs
+/infra:cert --check
+
+# Generate weekly report
+/infra:report --type weekly
+```
+
+The commands use `infra-god` CLI internally, so make sure the binary is built and available in the project directory.
+
 ## Requirements
 
 - Go 1.24+
