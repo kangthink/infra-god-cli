@@ -15,22 +15,22 @@ infra-god CLI를 사용하여 진단된 서버 문제에 대해 사전 정의된
 
 ## Arguments
 - `server` - 대상 서버명 (필수)
-- `action` - 복구 액션: `disk`, `security`
+- `action` - 복구 액션: `disk-cleanup`, `restart`, `restart-docker`, `security-harden`
 - `--dry-run` - 실행하지 않고 계획만 표시
 - `--aggressive` - 강력한 정리 (Docker builder cache, snap 포함)
 
 ## 복구 액션
 
-### disk - 디스크 정리
+### disk-cleanup - 디스크 정리
 ```bash
 # 안전 모드 - 정리 계획 확인
-./infra-god heal gpu-1 disk --dry-run
+./infra-god heal gpu-1 disk-cleanup --dry-run
 
 # 실제 정리 실행
-./infra-god heal gpu-1 disk
+./infra-god heal gpu-1 disk-cleanup
 
 # 공격적 정리 (Docker prune, snap 정리 포함)
-./infra-god heal gpu-1 disk --aggressive
+./infra-god heal gpu-1 disk-cleanup --aggressive
 ```
 
 **정리 대상:**
@@ -55,9 +55,9 @@ infra-god CLI를 사용하여 진단된 서버 문제에 대해 사전 정의된
   AFTER: / 72% used (360/500GB) — 4.68GB freed
 ```
 
-### security - 보안 강화
+### security-harden - 보안 강화
 ```bash
-./infra-god heal gpu-1 security
+./infra-god heal gpu-1 security-harden
 ```
 
 **조치 내용:**

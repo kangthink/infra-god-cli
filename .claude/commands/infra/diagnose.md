@@ -97,9 +97,9 @@ python3 (PID 4521) - ML 학습 프로세스
 ```
 
 ### 5. 후속 조치 안내
-- 디스크 문제 → `./infra-god heal server-name disk --dry-run`
+- 디스크 문제 → `./infra-god heal server-name disk-cleanup --dry-run`
 - 서비스 재시작 → `./infra-god exec "systemctl restart SERVICE" server-name --sudo --yes`
-- 보안 강화 → `./infra-god heal server-name security`
+- 보안 강화 → `./infra-god heal server-name security-harden`
 
 ## 환경변수
 - `INFRA_SSH_PASS` - SSH 비밀번호 (password auth 사용 시)

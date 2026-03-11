@@ -62,7 +62,7 @@ SERVER       ROLE     OS           CPU%  MEM%  DISK%  GPU          LOAD  UPTIME
 
 ### 3. 이상 감지 시 후속 안내
 - 경고/위험 서버가 있으면 `./infra-god inspect [server]` 사용을 안내
-- 디스크 위험이면 `./infra-god heal [server] disk --dry-run` 안내
+- 디스크 위험이면 `./infra-god heal [server] disk-cleanup --dry-run` 안내
 
 ## 환경변수
 - `INFRA_SSH_PASS` - SSH 비밀번호 (password auth 사용 시)
