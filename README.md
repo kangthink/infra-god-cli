@@ -15,12 +15,53 @@ No agents to install. No web dashboards. Just one binary and a YAML config.
 - **Process Monitoring** — Top processes by CPU/memory, per-server or fleet-wide
 - **IP Fallback** — Wired IP first, automatic fallback to wireless
 
+## Installation
+
+### Download binary (recommended)
+
+Download the latest release from [GitHub Releases](https://github.com/kangthink/infra-god-cli/releases):
+
+```bash
+# Linux (amd64)
+curl -Lo infra-god https://github.com/kangthink/infra-god-cli/releases/latest/download/infra-god-linux-amd64
+chmod +x infra-god
+sudo mv infra-god /usr/local/bin/
+
+# Linux (arm64)
+curl -Lo infra-god https://github.com/kangthink/infra-god-cli/releases/latest/download/infra-god-linux-arm64
+chmod +x infra-god
+sudo mv infra-god /usr/local/bin/
+
+# macOS (Apple Silicon)
+curl -Lo infra-god https://github.com/kangthink/infra-god-cli/releases/latest/download/infra-god-darwin-arm64
+chmod +x infra-god
+sudo mv infra-god /usr/local/bin/
+
+# macOS (Intel)
+curl -Lo infra-god https://github.com/kangthink/infra-god-cli/releases/latest/download/infra-god-darwin-amd64
+chmod +x infra-god
+sudo mv infra-god /usr/local/bin/
+```
+
+### Install with Go
+
+```bash
+go install github.com/kangthink/infra-god-cli@latest
+# Binary will be installed as 'infra-god-cli' in $GOPATH/bin
+# Optionally rename: mv $(go env GOPATH)/bin/infra-god-cli $(go env GOPATH)/bin/infra-god
+```
+
+### Build from source
+
+```bash
+git clone https://github.com/kangthink/infra-god-cli.git
+cd infra-god-cli
+go build -o infra-god .
+```
+
 ## Quick Start
 
 ```bash
-# Build
-go build -o infra-god .
-
 # Set up config
 cp servers.yaml.example servers.yaml
 # Edit servers.yaml with your server details
@@ -29,10 +70,10 @@ cp servers.yaml.example servers.yaml
 export INFRA_SSH_PASS="your-password"
 
 # Check all servers
-./infra-god status
+infra-god status
 
 # Inspect a specific server
-./infra-god inspect web-1
+infra-god inspect web-1
 ```
 
 ## Commands
