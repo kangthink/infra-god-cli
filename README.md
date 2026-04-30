@@ -14,6 +14,7 @@ No agents to install. No web dashboards. Just one binary and a YAML config.
 - **File Transfer** — SCP files to/from multiple servers
 - **Process Monitoring** — Top processes by CPU/memory, per-server or fleet-wide
 - **IP Fallback** — Wired IP first, automatic fallback to wireless
+- **Web UI** (`serve`) — read-only LAN dashboard so teammates can see status without SSH access
 
 ## Installation
 
@@ -90,6 +91,7 @@ infra-god inspect web-1
 | `users <server>` | User and permission info |
 | `cp <src> <dst> [server...]` | File transfer via SCP |
 | `config list\|add\|edit\|remove\|test` | Manage server inventory |
+| `serve` | Read-only LAN web UI (status + containers + folders) |
 
 ## Status Dashboard
 
@@ -193,6 +195,124 @@ servers:
       type: key
       key_path: ~/.ssh/web1_id_rsa
 ```
+
+## Web UI (`serve`)
+
+Read-only dashboard for the rest of your team — they can check fleet status without SSH access or admin privileges.
+
+### Quick start
+
+```bash
+# Foreground (Ctrl+C to stop)
+infra-god serve
+
+# Listening on http://0.0.0.0:9998
+#   본인 (this Mac):     http://localhost:9998/
+#   사내 다른 사람들:    http://<your-LAN-IP>:9998/
+```
+
+### What viewers can see
+
+- Dashboard (`/`) — live status table, alert banner, color-coded warnings
+- Per-server detail (`/servers/<name>`) — Docker containers (with health/restart state), listening ports, disk mounts, top-level folder sizes
+- Read-only by design — `exec`, `heal`, `cp` and any write endpoints are not exposed
+
+### Prerequisites
+
+- The Mac/Linux running `serve` is the **operator's machine** — it must stay on for others to view
+- All conditions for the CLI apply: `servers.yaml` inventory, SSH reachability, `INFRA_SSH_PASS` if password auth
+- Other people just need a browser and to be on the same LAN
+- **Security model: LAN trust.** No auth, no HTTPS. Don't expose port 9998 to the internet.
+
+### Flags
+
+| Flag | Default | Notes |
+|------|---------|-------|
+| `--addr` | `0.0.0.0:9998` | Bind address. Use `127.0.0.1:9998` to keep it on the local machine only. |
+| `--refresh` | `30s` | Status (CPU/MEM/DISK/GPU) poll interval. |
+| `--container-refresh` | `60s` | `docker ps` poll interval. |
+| `--details-refresh` | `2m` | Listening ports + `df` poll interval. |
+| `--folders-refresh` | `5m` | `du`-based top-level folder size scan. Heavier; runs separately. |
+
+Background pollers run on a fixed cadence regardless of viewer count, so SSH load on your servers is constant whether 1 or 50 people are looking.
+
+### Auto-start on macOS (Login Item .app)
+
+Install once — a tiny `InfraGod.app` bundle is registered as a Login Item, so the daemon starts silently every time you log in. macOS's Local Network privacy works correctly because we run as a proper app (with `NSLocalNetworkUsageDescription`) rather than a raw launchd daemon.
+
+> **Why an .app bundle, not LaunchAgent?**
+> macOS 14+ blocks LaunchAgent-spawned processes from connecting to LAN IPs (Local Network privacy gate). LaunchAgents have no way to surface the permission prompt. Wrapping the binary in an `.app` lets macOS prompt you once on first run, then remember the grant forever.
+
+```bash
+# 1) Build the binary into your PATH
+go build -o /usr/local/bin/infra-god .
+
+# 2) Set SSH password in your shell (if your servers use password auth)
+export INFRA_SSH_PASS='your-password'
+
+# 3) Install the .app + Login Item
+./scripts/autostart/install.sh
+```
+
+Output example:
+```
+✅ InfraGod.app is running.
+   본인:        http://localhost:9998/
+   사내 공유:   http://192.168.1.9:9998/
+   app:         ~/Applications/InfraGod.app
+   logs:        ~/Library/Logs/infra-god/infra-god.{out,err}.log
+
+🔔 처음 실행 시 macOS가 'Local Network 접근 허용' 알림을 띄울 수 있습니다.
+   '허용'을 누르면 LAN 서버에 접근 가능해집니다.
+```
+
+The installer:
+- Builds `~/Applications/InfraGod.app` with `LSUIElement` (no Dock icon, runs silently)
+- Registers it as a Login Item via AppleScript
+- Codesigns ad-hoc so TCC tracks the bundle as a stable identity
+- Opens it immediately so you can grant the Local Network prompt now
+
+### Is it running?
+
+```bash
+./scripts/autostart/check.sh
+```
+
+One command shows: app bundle path, Login Item registration, process pid, `/healthz` response, **LAN reachability counts**, recent log tails. Errors trigger a hint about Local Network permission. Use any time you wonder "is it still up?".
+
+Quick alternatives:
+```bash
+curl -s http://localhost:9998/healthz                  # is the HTTP server alive?
+pgrep -af 'infra-god serve'                            # is the process there?
+tail -f ~/Library/Logs/infra-god/infra-god.out.log     # live log
+```
+
+### Update / Reinstall
+
+After rebuilding the binary or changing your `INFRA_SSH_PASS`:
+```bash
+./scripts/autostart/install.sh   # safe to re-run; replaces the bundle and restarts
+```
+
+### Stop / Remove
+
+```bash
+./scripts/autostart/uninstall.sh   # stops the app, removes Login Item and bundle
+```
+
+Logs at `~/Library/Logs/infra-god/` are kept (delete manually if not wanted). The Local Network permission entry remains in System Settings — toggle off there if desired.
+
+### Troubleshooting
+
+| Symptom | Cause / fix |
+|---------|------------|
+| All LAN servers show `no route to host` | Local Network permission not granted. `open 'x-apple.systempreferences:com.apple.preference.security?Privacy_LocalNetwork'` and toggle **InfraGod** on. |
+| `connection refused` for the first 1-2 minutes | First poll is still finishing. Wait, then refresh. |
+| FOLDERS section shows "scanning…" for ~2 minutes after start | First `du` scan is in progress. Subsequent scans use cached data. |
+| Some server shows `auth_fail` | SSH password wrong / changed. `export INFRA_SSH_PASS=...` in your shell, then re-run `install.sh`. |
+| Port already in use | Edit `scripts/autostart/install.sh` and change `0.0.0.0:9998` to a free port (also update wrapper). |
+| LAN colleagues can't connect | Check macOS firewall (System Settings → Network → Firewall) — incoming connections must be allowed for `infra-god`. |
+| Binary moved | Re-run `./scripts/autostart/install.sh` to refresh the wrapper script's path. |
 
 ## Global Flags
 

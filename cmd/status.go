@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/kangthink/infra-god-cli/internal/alerts"
 	"github.com/kangthink/infra-god-cli/internal/collector"
 	"github.com/kangthink/infra-god-cli/internal/inventory"
 	"github.com/kangthink/infra-god-cli/internal/output"
@@ -91,6 +92,20 @@ type serverStatus struct {
 	status   string // ok, warning, critical, error, stopped, auth_fail
 }
 
+// metric extracts the alert-relevant view of a serverStatus.
+// gpuInfo is stripped of ANSI codes so alert rules can match plain text.
+func (s *serverStatus) metric() alerts.Metric {
+	return alerts.Metric{
+		Server:  s.server.Name,
+		Status:  s.status,
+		DiskPct: s.diskPct,
+		MemPct:  s.memPct,
+		CPUs:    s.cpus,
+		Load:    s.load,
+		GPUInfo: output.StripANSI(s.gpuInfo),
+	}
+}
+
 type statusJSON struct {
 	Timestamp string             `json:"timestamp"`
 	Servers   []serverStatusJSON `json:"servers"`
@@ -160,23 +175,16 @@ func printStatus(targets []*inventory.ResolvedServer) {
 
 		if results[i].Error != nil {
 			if strings.Contains(results[i].Error.Error(), "auth") || strings.Contains(results[i].Error.Error(), "handshake") {
-				s.status = "auth_fail"
+				s.status = alerts.StatusAuthFail
 			} else {
-				s.status = "error"
+				s.status = alerts.StatusError
 			}
 			statuses = append(statuses, s)
 			continue
 		}
 
 		parseStatusOutput(results[i].Output, &s)
-
-		// Determine overall status
-		if s.diskPct >= 90 || s.load >= float64(s.cpus)*0.8 || s.memPct >= 90 {
-			s.status = "warning"
-		}
-		if s.diskPct >= 95 || s.memPct >= 95 {
-			s.status = "critical"
-		}
+		s.status = alerts.DeriveStatus(s.metric())
 
 		statuses = append(statuses, s)
 	}
@@ -283,26 +291,16 @@ func printStatus(targets []*inventory.ResolvedServer) {
 	)
 
 	// Alerts
-	var alerts []string
+	var metrics []alerts.Metric
 	for _, s := range statuses {
-		if s.diskPct >= 85 {
-			alerts = append(alerts, fmt.Sprintf("  • %s  disk %d%%", s.server.Name, s.diskPct))
-		}
-		if s.cpus > 0 && s.load >= float64(s.cpus)*0.6 {
-			alerts = append(alerts, fmt.Sprintf("  • %s  load %.1f (CPUs: %d)", s.server.Name, s.load, s.cpus))
-		}
-		if strings.Contains(s.gpuInfo, "error") || strings.Contains(s.gpuInfo, "driver") {
-			alerts = append(alerts, fmt.Sprintf("  • %s  GPU issue: %s", s.server.Name, s.gpuInfo))
-		}
-		if s.status == "auth_fail" {
-			alerts = append(alerts, fmt.Sprintf("  • %s  SSH authentication failed", s.server.Name))
-		}
+		metrics = append(metrics, s.metric())
 	}
-	if len(alerts) > 0 {
+	derived := alerts.DeriveAll(metrics)
+	if len(derived) > 0 {
 		fmt.Println()
 		fmt.Println(output.BoldRed(" ALERTS:"))
-		for _, a := range alerts {
-			fmt.Println(a)
+		for _, a := range derived {
+			fmt.Printf("  • %s  %s\n", a.Server, a.Message)
 		}
 	}
 	fmt.Println()

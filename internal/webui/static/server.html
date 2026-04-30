@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>infra-god · {{NAME}}</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/htmx.min.js" defer></script>
+</head>
+<body>
+  <main class="shell">
+    <div class="topbar">
+      <h1><a href="/" style="color:var(--muted)">infra-god</a> · <span class="accent">{{NAME}}</span></h1>
+      <div class="meta" id="meta">loading…</div>
+    </div>
+
+    <div id="server-detail"
+         hx-get="/partials/server/{{NAME}}"
+         hx-trigger="load, every 30s"
+         hx-swap="innerHTML">
+      <p class="meta">초기 데이터 로딩 중…</p>
+    </div>
+
+    <footer>
+      <a href="/">← back to dashboard</a> · auto-refresh every 30s
+    </footer>
+  </main>
+</body>
+</html>

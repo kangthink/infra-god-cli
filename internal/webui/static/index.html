@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>infra-god</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/htmx.min.js" defer></script>
+</head>
+<body>
+  <main class="shell">
+    <div class="topbar">
+      <h1><span class="accent">infra-god</span> · status</h1>
+      <div class="meta" id="meta">loading…</div>
+    </div>
+
+    <div id="dashboard"
+         hx-get="/partials/dashboard"
+         hx-trigger="load, every 30s"
+         hx-swap="innerHTML">
+      <p class="meta">초기 데이터 로딩 중…</p>
+    </div>
+
+    <footer>
+      auto-refresh every 30s · read-only · LAN
+    </footer>
+  </main>
+</body>
+</html>

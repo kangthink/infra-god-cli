@@ -119,6 +119,38 @@ echo "nvidia-driver:$(nvidia-smi --query-gpu=driver_version --format=csv,noheade
 echo "cuda:$(nvcc --version 2>/dev/null | grep release | awk '{print $6}' | tr -d ',' || echo N/A)"
 `
 
+// FoldersCmd lists top-level folders per real mount with their sizes.
+// du can be slow on huge filesystems — protected by a per-mount timeout.
+const FoldersCmd = `
+for mp in $(df -h --output=source,target 2>/dev/null | grep '^/dev' | grep -vE 'loop|tmpfs|squashfs' | awk '{print $2}'); do
+  echo "MOUNT:${mp}"
+  timeout 30 du -sh "${mp%/}"/*/ 2>/dev/null | sort -rh | head -8 | while read sz path; do
+    echo "F|${sz}|${path}"
+  done
+done
+`
+
+// DetailsCmd collects listening ports + disk mount usage for the WebUI server detail.
+const DetailsCmd = `
+echo "===PORTS==="
+ss -tln 2>/dev/null | awk 'NR>1 {print $4}' | grep -vE '^127\.|^\[::1\]|^169\.254' | sort -u | head -60
+
+echo "===MOUNTS==="
+df -h --output=source,size,used,avail,pcent,target 2>/dev/null | tail -n +2 | grep '^/dev' | grep -vE 'loop|tmpfs|squashfs'
+`
+
+// ContainersCmd collects compact Docker container info for the WebUI.
+// Pipe-delimited fields: name|state|health|image|restart|startedAt|ports
+const ContainersCmd = `
+if command -v docker &>/dev/null; then
+  for c in $(docker ps -aq --no-trunc 2>/dev/null); do
+    docker inspect "$c" --format '{{.Name}}|{{.State.Status}}|{{if .State.Health}}{{.State.Health.Status}}{{else}}-{{end}}|{{.Config.Image}}|{{.HostConfig.RestartPolicy.Name}}|{{.State.StartedAt}}|{{range $p, $b := .NetworkSettings.Ports}}{{if $b}}{{(index $b 0).HostPort}}->{{$p}} {{end}}{{end}}' 2>/dev/null | sed 's|^/||'
+  done
+else
+  echo "none"
+fi
+`
+
 // InspectDockerCmd collects Docker container details with restart policy.
 const InspectDockerCmd = `
 if command -v docker &>/dev/null; then

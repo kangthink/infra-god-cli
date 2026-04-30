@@ -1,0 +1,145 @@
+:root {
+  --bg: #0f1115;
+  --panel: #161922;
+  --panel-2: #1c2030;
+  --text: #e6e9f2;
+  --muted: #8a93a8;
+  --border: #262a36;
+  --accent: #6aa0ff;
+  --ok: #4ad295;
+  --warn: #f0b94a;
+  --crit: #f06464;
+  --stopped: #4a4f5d;
+  --link: #8ab8ff;
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+}
+a { color: var(--link); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+.shell { max-width: 1280px; margin: 0 auto; padding: 24px 20px 48px; }
+
+.topbar {
+  display: flex; justify-content: space-between; align-items: baseline;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 12px; margin-bottom: 20px;
+}
+.topbar h1 {
+  margin: 0; font-size: 18px; letter-spacing: 0.5px;
+}
+.topbar h1 .accent { color: var(--accent); }
+.meta { color: var(--muted); font-size: 12px; }
+.meta .dot { color: var(--ok); }
+.meta .dot.warn { color: var(--warn); }
+.meta .dot.crit { color: var(--crit); }
+
+.alerts {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+.alerts-header {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center;
+  background: var(--panel-2);
+}
+.alerts-header .title { font-weight: 600; }
+.alerts-header.empty { color: var(--muted); }
+.alerts-list { padding: 4px 0; }
+.alert-row {
+  padding: 8px 16px;
+  display: flex; gap: 12px; align-items: center;
+  border-bottom: 1px solid var(--border);
+}
+.alert-row:last-child { border-bottom: none; }
+.alert-row .badge {
+  min-width: 64px; text-align: center;
+  padding: 2px 8px; border-radius: 4px;
+  font-size: 11px; font-weight: 600;
+  text-transform: uppercase;
+}
+.alert-row .badge.warning { background: rgba(240,185,74,0.15); color: var(--warn); }
+.alert-row .badge.critical { background: rgba(240,100,100,0.15); color: var(--crit); }
+.alert-row .server {
+  font-family: ui-monospace, SF Mono, Menlo, monospace;
+  color: var(--accent);
+}
+.alert-row .msg { color: var(--text); }
+.alert-row .cat { color: var(--muted); font-size: 12px; }
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.panel-header {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel-2);
+  font-weight: 600;
+}
+
+table.servers {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+table.servers th, table.servers td {
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+table.servers th {
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: var(--panel-2);
+}
+table.servers tr:last-child td { border-bottom: none; }
+table.servers tr.row-stopped td { color: var(--stopped); }
+table.servers tr.row-warning td.icon { color: var(--warn); }
+table.servers tr.row-critical td.icon { color: var(--crit); }
+table.servers tr.row-ok td.icon { color: var(--ok); }
+table.servers tr.row-error td.icon { color: var(--crit); }
+
+table.servers .name { font-family: ui-monospace, SF Mono, Menlo, monospace; }
+table.servers .name a { color: var(--accent); }
+table.servers td.num {
+  text-align: right;
+  font-family: ui-monospace, SF Mono, Menlo, monospace;
+}
+table.servers td.warn { color: var(--warn); }
+table.servers td.crit { color: var(--crit); }
+table.servers td.muted { color: var(--muted); }
+
+.refresh-btn {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+.htmx-request .refresh-btn { opacity: 0.5; pointer-events: none; }
+
+footer {
+  margin-top: 24px;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+}
