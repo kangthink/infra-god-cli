@@ -67,7 +67,7 @@ go build -o infra-god .
 cp servers.yaml.example servers.yaml
 # Edit servers.yaml with your server details
 
-# Set SSH password (if using password auth)
+# Set SSH password — either export, or put in .env (see Environment Variables below)
 export INFRA_SSH_PASS="your-password"
 
 # Check all servers
@@ -195,6 +195,35 @@ servers:
       type: key
       key_path: ~/.ssh/web1_id_rsa
 ```
+
+### Environment Variables (`.env`)
+
+Any environment variable referenced by `servers.yaml` (typically `password_env`) can be loaded from a `.env` file instead of `export`-ing in your shell.
+
+**Load order** (later sources do not override already-set vars, so shell wins, then project, then global):
+
+1. Shell environment (`export FOO=...`)
+2. `./.env` — project-local, in the directory you run `infra-god` from
+3. `~/.infra-god/.env` — user-global fallback
+
+**Example user-global setup:**
+```bash
+mkdir -p ~/.infra-god
+cat > ~/.infra-god/.env <<'EOF'
+INFRA_SSH_PASS=your-password
+WEB1_SSH_PASS=different-password-for-web1
+EOF
+chmod 600 ~/.infra-god/.env
+```
+
+Now `infra-god status` works from any directory without manually exporting passwords each shell session. Combined with `~/.infra-god/servers.yaml` (auto-discovered when no `./servers.yaml` exists), this gives you a fully global setup.
+
+### Config File Discovery
+
+When `--config` is not specified, infra-god searches in this order:
+
+1. `./servers.yaml` — project-local
+2. `~/.infra-god/servers.yaml` — user-global
 
 ## Web UI (`serve`)
 

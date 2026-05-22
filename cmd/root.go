@@ -3,8 +3,10 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
+	"github.com/joho/godotenv"
 	"github.com/kangthink/infra-god-cli/internal/inventory"
 	sshclient "github.com/kangthink/infra-god-cli/internal/ssh"
 	"github.com/spf13/cobra"
@@ -28,8 +30,18 @@ var rootCmd = &cobra.Command{
 }
 
 func Execute() {
+	loadDotEnv()
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
+	}
+}
+
+// loadDotEnv loads environment variables from .env files.
+// Precedence: shell env > ./.env > ~/.infra-god/.env (godotenv.Load skips already-set vars).
+func loadDotEnv() {
+	_ = godotenv.Load(".env")
+	if home, err := os.UserHomeDir(); err == nil {
+		_ = godotenv.Load(filepath.Join(home, ".infra-god", ".env"))
 	}
 }
 
